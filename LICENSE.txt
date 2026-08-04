@@ -1,0 +1,28 @@
+Valtique (c) Zaineedyou
+
+This work (all original code in this shaderpack, excluding the outline
+detection logic covered separately by COMPLEMENTARY_LICENSE.txt) is
+licensed under the Creative Commons Attribution-NoDerivatives 4.0
+International License (CC BY-ND 4.0).
+
+You are free to:
+  - Share: copy and redistribute this shaderpack in any medium or
+    format, for any purpose, even commercially.
+
+Under the following terms:
+  - Attribution: You must give appropriate credit to Zaineedyou,
+    provide a link to the license, and indicate if changes were made.
+    You may do so in any reasonable manner, but not in any way that
+    suggests the licensor endorses you or your use.
+  - NoDerivatives: If you remix, transform, or build upon this
+    shaderpack's code, you may not distribute the modified material.
+
+No additional restrictions: You may not apply legal terms or
+technological measures that legally restrict others from doing
+anything the license permits.
+
+Full legal code:
+https://creativecommons.org/licenses/by-nd/4.0/legalcode
+
+License summary:
+https://creativecommons.org/licenses/by-nd/4.0/
