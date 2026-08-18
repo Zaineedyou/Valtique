@@ -1,4 +1,14 @@
 ## Changelog
+
+**v5.4**
+- Replaced the previous bloom stage with low-resolution **Halation**, using a warm highlight bleed with adjustable strength, radius, threshold, and warmth.
+- Added **VHS Signal Mode** with horizontal jitter and head-switching noise by default; tape dropout and vertical-hold slip are enabled when `POTATO_MODE` is turned off.
+- Added **CRT Color Convergence** and an animated **Interlaced Scanline Roll** to the tube-screen look.
+- Added quarter-resolution **Phosphor Persistence** for a short-lived afterimage on bright moving highlights. The history buffer is retained across frames without compute shaders.
+- Added `POTATO_MODE`, enabled by default. It uses a one-tap halation path and disables procedural scratch/dust loops plus the heavier VHS variants, targeting mobile launchers and low-end hardware.
+- Reorganized Shader Pack Settings into Performance, CRT Look, VHS Signal, Halation, Phosphor, Film Damage, Outline, and Fog categories.
+- Validated all fragment/vertex programs, full-quality and Potato configurations, Fog, and Outline linking with GLSL 330 compatibility validation.
+
 **v5.2**
 - Renamed the shaderpack from "Cinematic Old Film Shader" / CinematicFog to
   Valtique.

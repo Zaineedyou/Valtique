@@ -1,10 +1,6 @@
 #version 330 compatibility
 
-/* Khusus untuk matahari, bulan, dan bintang (textured sky objects).
-   Dipisah dari gbuffers_textured supaya TIDAK ikut kena fog — sky object
-   dirender di jarak yang tidak representatif untuk perhitungan fog jarak
-   biasa, sehingga kalau ikut fog, hasilnya bisa melebar/blur jadi
-   lingkaran putih besar saat FOG_ENABLED dinyalakan. */
+/* Keep textured sky objects outside distance fog. */
 
 varying vec2 texCoord;
 varying vec4 vertexColor;

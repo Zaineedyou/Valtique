@@ -1,20 +1,23 @@
 #version 330 compatibility
 
-/* CINEMATIC OLD FILM SHADER - composite pass 1/3
-   Pass ini mengerjakan semua efek KECUALI bloom & outline. Bloom & outline
-   diproses di composite1.fsh (isi buffer lowres) dan composite2.fsh
-   (terapkan efeknya) — dipisah 3 pass karena Iris mensyaratkan satu
-   program cuma bisa menulis ke buffer-buffer berukuran identik.
-*/
-
 #define LETTERBOX_SIZE 0.11 // [0.06 0.08 0.11 0.14 0.17]
 #define GRAIN_STRENGTH 0.05 // [0.0 0.02 0.05 0.08 0.12]
 #define DISTORT_STRENGTH 1.2 // [0.0 0.6 1.2 1.8 2.4]
-#define SEPIA_STRENGTH 0.45 // [0.0 0.25 0.45 0.65 0.85]
+#define BARREL_DISTORTION 0.05 // [0.0 0.02 0.05 0.08 0.12 0.15]
+#define CRT_DESATURATION 0.35 // [0.0 0.15 0.35 0.5 0.65 0.8]
+#define CRT_CONTRAST 1.15 // [1.0 1.05 1.1 1.15 1.2 1.3]
+#define CRT_STRENGTH 0.15 // [0.0 0.05 0.15 0.25 0.4]
+#define SCANLINE_SPEED 0.25 // [0.0 0.1 0.25 0.5 0.8]
+#define CONVERGENCE_STRENGTH 0.6 // [0.0 0.3 0.6 1.0 1.5]
 #define SCRATCH_STRENGTH 0.45 // [0.0 0.25 0.45 0.6 0.8]
 #define DUST_STRENGTH 0.45 // [0.0 0.25 0.45 0.6 0.8]
-#define CRT_STRENGTH 0.15 // [0.0 0.05 0.15 0.25 0.4]
 #define BORDER_FOG_STRENGTH 0.0 // [0.0 0.5 1.0 1.5 2.0 3.0 5.0]
+
+#define VHS_ENABLED
+#define VHS_JITTER 0.6 // [0.0 0.3 0.6 1.0 1.5]
+#define VHS_NOISE 0.12 // [0.0 0.06 0.12 0.2 0.3]
+#define VHS_TRACKING_RATE 0.15 // [0.0 0.08 0.15 0.3 0.5]
+#define POTATO_MODE
 
 uniform sampler2D colortex0;
 uniform sampler2D depthtex0;
@@ -29,27 +32,21 @@ in vec2 texcoord;
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor0;
 
-// --- Pseudo-random noise ---
 float rand(vec2 co) {
-    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-// --- Border fog buatan sendiri, pola dari shaderpack referensi (Tricked).
-// Default 0.0 = TIDAK ADA border fog sama sekali. ---
 float getBorderFogFactor(float dist01) {
-    if (BORDER_FOG_STRENGTH <= 0.0001) return 0.0;
     float s = dist01;
     s *= s; s *= s; s *= s;
     return 1.0 - min(1.0, (1.0 - smoothstep(0.9, 1.5, s)) * exp(-3.0 * BORDER_FOG_STRENGTH * s));
 }
 
-// --- Linearisasi depth ---
 float linearizeDepth(float depth) {
     float z = depth * 2.0 - 1.0;
     return (2.0 * near * far) / (far + near - z * (far - near));
 }
 
-// --- Gores film, lurus vertikal ---
 float filmScratches(vec2 uv, float time) {
     float scratch = 0.0;
     for (int i = 0; i < 6; i++) {
@@ -69,7 +66,6 @@ float filmScratches(vec2 uv, float time) {
     return clamp(scratch, 0.0, 1.0);
 }
 
-// --- Bercak/dust ---
 float filmDust(vec2 uv, float time) {
     float dust = 0.0;
     for (int i = 0; i < 10; i++) {
@@ -81,73 +77,115 @@ float filmDust(vec2 uv, float time) {
             float d = length(uv - spotPos);
             float sizeBias = rand(vec2(slot, seed + 11.0));
             float radius = 0.0015 + sizeBias * sizeBias * 0.008;
-            float opacity = mix(1.0, 0.5, sizeBias);
-            dust += smoothstep(radius, 0.0, d) * opacity;
+            dust += smoothstep(radius, 0.0, d) * mix(1.0, 0.5, sizeBias);
         }
     }
     return clamp(dust, 0.0, 1.0);
 }
 
-// --- CRT dot mask ---
-float crtDotMask(vec2 uv, float viewW, float viewH) {
-    return sin(3.14159 * uv.x * 800.0 * viewW) * sin(3.14159 * uv.y * 800.0 * viewH);
+float scanlineMask() {
+    float field = fract(gl_FragCoord.y * 0.5 + frameTimeCounter * SCANLINE_SPEED);
+    return abs(field * 2.0 - 1.0);
 }
 
 void main() {
     vec2 uv = texcoord;
-    vec2 pixelSize = 1.0 / vec2(viewWidth, viewHeight);
+
+#ifdef VHS_ENABLED
+    float vhsFrame = floor(frameTimeCounter * 20.0);
+    float vhsLine = floor(uv.y * viewHeight * 0.125);
+    float jitter = (rand(vec2(vhsLine, vhsFrame)) - 0.5) * VHS_JITTER * 4.0 / viewWidth;
+    float headBand = smoothstep(0.92, 1.0, uv.y);
+    uv.x += jitter * (1.0 + headBand * 4.0);
+#ifndef POTATO_MODE
+    float holdSlot = floor(frameTimeCounter * max(VHS_TRACKING_RATE, 0.001));
+    if (VHS_TRACKING_RATE > 0.0 && rand(vec2(holdSlot, 91.0)) > 0.992) {
+        float slipBand = smoothstep(0.30, 0.42, uv.y) * (1.0 - smoothstep(0.42, 0.54, uv.y));
+        uv.y = fract(uv.y + slipBand * 0.035);
+    }
+#endif
+#endif
+
+    if (BARREL_DISTORTION > 0.0001) {
+        vec2 signedUv = uv * 2.0 - 1.0;
+        signedUv *= 1.0 + (dot(signedUv, signedUv) - 1.0) * BARREL_DISTORTION;
+        uv = signedUv * 0.5 + 0.5;
+    }
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        outColor0 = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    float edgeSoftness = LETTERBOX_SIZE * 0.35;
+    float opaqueBarEnd = LETTERBOX_SIZE - edgeSoftness;
+    if (uv.y <= opaqueBarEnd || uv.y >= 1.0 - opaqueBarEnd) {
+        outColor0 = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
 
     vec2 centered = uv - 0.5;
     float dist = length(centered);
-
-    // 1. Distorsi lensa
-    vec2 distortOffset = centered * (0.15 + dist * DISTORT_STRENGTH) * pixelSize * 3.0;
-    float r = texture(colortex0, uv + distortOffset).r;
-    float g = texture(colortex0, uv).g;
-    float b = texture(colortex0, uv - distortOffset).b;
-    vec3 color = vec3(r, g, b);
-
-    // 2b. Border fog (opsional, default mati)
-    float rawDepthBF = texture(depthtex0, uv).r;
-    if (rawDepthBF < 1.0 && BORDER_FOG_STRENGTH > 0.0001) {
-        float linearDistBF = linearizeDepth(rawDepthBF);
-        float borderFogFactor = getBorderFogFactor(clamp(linearDistBF / far, 0.0, 1.0));
-        vec3 borderFogColor = vec3(0.35, 0.30, 0.22);
-        color = mix(color, borderFogColor, borderFogFactor);
+    vec2 pixelSize = 1.0 / vec2(viewWidth, viewHeight);
+    vec2 lensOffset = vec2(0.0);
+    if (DISTORT_STRENGTH > 0.0001) {
+        lensOffset = centered * (0.15 + dist * DISTORT_STRENGTH) * pixelSize * 3.0;
+    }
+    vec3 color;
+    if (DISTORT_STRENGTH > 0.0001 || CONVERGENCE_STRENGTH > 0.0001) {
+        vec2 convergenceOffset = centered * (dist * dist) * pixelSize * CONVERGENCE_STRENGTH;
+        color = vec3(
+            texture(colortex0, uv + lensOffset + convergenceOffset).r,
+            texture(colortex0, uv).g,
+            texture(colortex0, uv - lensOffset - convergenceOffset).b
+        );
+    } else {
+        color = texture(colortex0, uv).rgb;
     }
 
-    // 3. Sepia
-    vec3 sepiaGraded = vec3(
-        dot(color, vec3(0.393, 0.769, 0.189)),
-        dot(color, vec3(0.349, 0.686, 0.168)),
-        dot(color, vec3(0.272, 0.534, 0.131))
-    );
-    vec3 sepia = mix(color, sepiaGraded, 0.6);
-    color = mix(color, sepia, SEPIA_STRENGTH);
+    if (BORDER_FOG_STRENGTH > 0.0001) {
+        float rawDepth = texture(depthtex0, uv).r;
+        if (rawDepth < 1.0) {
+            color = mix(color, vec3(0.35, 0.30, 0.22), getBorderFogFactor(clamp(linearizeDepth(rawDepth) / far, 0.0, 1.0)));
+        }
+    }
 
-    // 4. Film grain
-    float grainNoise = rand(uv * vec2(viewWidth, viewHeight) + frameTimeCounter * 24.0);
-    grainNoise = (grainNoise - 0.5) * 2.0;
-    float edgeBoost = 1.0 + dist * 1.5;
-    color += grainNoise * GRAIN_STRENGTH * edgeBoost;
+    if (CRT_DESATURATION > 0.0001) {
+        color = mix(color, vec3(dot(color, vec3(0.299, 0.587, 0.114))), CRT_DESATURATION);
+    }
+    if (abs(CRT_CONTRAST - 1.0) > 0.0001) {
+        color = (color - 0.5) * CRT_CONTRAST + 0.5;
+    }
+    color *= vec3(0.95, 0.98, 1.05);
 
-    // 5. Gores + bercak film
-    float scratch = filmScratches(uv, frameTimeCounter);
-    color = mix(color, vec3(0.05), scratch * SCRATCH_STRENGTH);
-    float dust = filmDust(uv, frameTimeCounter);
-    color = mix(color, vec3(0.05), dust * DUST_STRENGTH);
+#ifdef VHS_ENABLED
+    if (VHS_NOISE > 0.0001) {
+        float signalNoise = rand(vec2(floor(uv.y * viewHeight * 0.25), vhsFrame)) - 0.5;
+        color += signalNoise * VHS_NOISE;
+#ifndef POTATO_MODE
+        float dropout = step(0.9975, rand(vec2(floor(uv.y * viewHeight * 0.08), floor(frameTimeCounter * 12.0))));
+        color = mix(color, vec3(dot(color, vec3(0.299, 0.587, 0.114))), dropout * VHS_NOISE);
+#endif
+    }
+#endif
 
-    // 6. CRT dot mask
-    float dotMask = crtDotMask(uv, viewWidth, viewHeight);
-    color *= mix(1.0 - CRT_STRENGTH, 1.0, dotMask * 0.5 + 0.5);
+    if (GRAIN_STRENGTH > 0.0001) {
+        float grainNoise = rand(uv * vec2(viewWidth, viewHeight) + frameTimeCounter * 24.0);
+        color += (grainNoise - 0.5) * 2.0 * GRAIN_STRENGTH * (1.0 + dist * 1.5);
+    }
+#ifndef POTATO_MODE
+    if (SCRATCH_STRENGTH > 0.0001) {
+        color = mix(color, vec3(0.05), filmScratches(uv, frameTimeCounter) * SCRATCH_STRENGTH);
+    }
+    if (DUST_STRENGTH > 0.0001) {
+        color = mix(color, vec3(0.05), filmDust(uv, frameTimeCounter) * DUST_STRENGTH);
+    }
+#endif
+    if (CRT_STRENGTH > 0.0001) {
+        color *= 1.0 - CRT_STRENGTH * (1.0 - scanlineMask());
+    }
 
-    // 8. Letterbox bars
-    float edgeSoftness = LETTERBOX_SIZE * 0.35;
-    float topBar    = smoothstep(LETTERBOX_SIZE, LETTERBOX_SIZE - edgeSoftness, uv.y);
-    float bottomBar = smoothstep(1.0 - LETTERBOX_SIZE, 1.0 - (LETTERBOX_SIZE - edgeSoftness), uv.y);
-    float barMask = max(topBar, bottomBar);
-    color = mix(color, vec3(0.0), barMask);
-
-    outColor0 = vec4(color, 1.0);
+    float topBar = 1.0 - smoothstep(opaqueBarEnd, LETTERBOX_SIZE, uv.y);
+    float bottomBar = smoothstep(1.0 - LETTERBOX_SIZE, 1.0 - opaqueBarEnd, uv.y);
+    outColor0 = vec4(mix(color, vec3(0.0), max(topBar, bottomBar)), 1.0);
 }
-

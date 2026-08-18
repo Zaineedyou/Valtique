@@ -9,7 +9,9 @@ uniform float far;
 
 in vec2 texCoord;
 in vec4 vertexColor;
+#ifdef FOG_ENABLED
 in float fogDistance;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor0;

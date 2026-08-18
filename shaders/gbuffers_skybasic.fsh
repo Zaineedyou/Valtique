@@ -1,8 +1,6 @@
 #version 330 compatibility
 
-/* Sky/horizon/void basic — warna vertex asli langsung ditulis, TIDAK ada
-   pencampuran fog vanilla (gl_Fog) sama sekali. Ini mematikan sumber fog
-   abu-abu yang sebelumnya muncul otomatis dari fallback built-in Iris. */
+/* Preserve sky color without fallback fog. */
 
 in vec4 vertexColor;
 

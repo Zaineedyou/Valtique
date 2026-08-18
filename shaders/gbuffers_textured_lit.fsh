@@ -11,19 +11,21 @@ uniform float far;
 in vec2 texCoord;
 in vec2 lightMapCoord;
 in vec4 vertexColor;
+#ifdef FOG_ENABLED
 in float fogDistance;
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor0;
 
 void main() {
     vec4 albedo = texture2D(texture, texCoord) * vertexColor;
-    vec3 light = texture2D(lightmap, lightMapCoord).rgb;
-    albedo.rgb *= light;
-
     if (albedo.a < 0.1) {
         discard;
     }
+
+    vec3 light = texture2D(lightmap, lightMapCoord).rgb;
+    albedo.rgb *= light;
 
 #ifdef FOG_ENABLED
     float dist = fogDistance / far;
