@@ -1,8 +1,8 @@
 #version 330 compatibility
 
 #define PERSISTENCE_ENABLED
-#define PERSISTENCE_DECAY 0.72 // [0.55 0.65 0.72 0.8 0.88]
-#define PERSISTENCE_THRESHOLD 0.72 // [0.5 0.6 0.72 0.85 1.0]
+#define PERSISTENCE_DECAY 0.65 // [0.55 0.65 0.72 0.8 0.88]
+#define PERSISTENCE_THRESHOLD 0.85 // [0.5 0.6 0.72 0.85 1.0]
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex2;

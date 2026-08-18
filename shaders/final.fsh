@@ -1,12 +1,12 @@
 #version 330 compatibility
 
-#define HALATION_ENABLED
-#define HALATION_STRENGTH 0.35 // [0.0 0.15 0.25 0.35 0.5 0.7]
-#define HALATION_RADIUS 1.0 // [0.5 0.75 1.0 1.5 2.0]
-#define HALATION_WARMTH 0.65 // [0.0 0.35 0.65 0.85 1.0]
+#define HALATION_ENABLED // Enables low-resolution warm halation.
+#define HALATION_STRENGTH 0.25 // [0.0 0.15 0.25 0.35 0.5 0.7]
+#define HALATION_RADIUS 0.75 // [0.5 0.75 1.0 1.5 2.0]
+#define HALATION_WARMTH 0.35 // [0.0 0.35 0.65 0.85 1.0]
 
 #define PERSISTENCE_ENABLED
-#define PERSISTENCE_STRENGTH 0.14 // [0.0 0.06 0.14 0.22 0.35]
+#define PERSISTENCE_STRENGTH 0.06 // [0.0 0.06 0.14 0.22 0.35]
 #define POTATO_MODE
 
 //#define OUTLINE_ENABLED

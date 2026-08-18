@@ -1,22 +1,22 @@
 #version 330 compatibility
 
-#define LETTERBOX_SIZE 0.11 // [0.06 0.08 0.11 0.14 0.17]
-#define GRAIN_STRENGTH 0.05 // [0.0 0.02 0.05 0.08 0.12]
-#define DISTORT_STRENGTH 1.2 // [0.0 0.6 1.2 1.8 2.4]
-#define BARREL_DISTORTION 0.05 // [0.0 0.02 0.05 0.08 0.12 0.15]
-#define CRT_DESATURATION 0.35 // [0.0 0.15 0.35 0.5 0.65 0.8]
-#define CRT_CONTRAST 1.15 // [1.0 1.05 1.1 1.15 1.2 1.3]
+#define LETTERBOX_SIZE 0.08 // [0.06 0.08 0.11 0.14 0.17]
+#define GRAIN_STRENGTH 0.02 // [0.0 0.02 0.05 0.08 0.12]
+#define DISTORT_STRENGTH 0.6 // [0.0 0.6 1.2 1.8 2.4]
+#define BARREL_DISTORTION 0.08 // [0.0 0.02 0.05 0.08 0.12 0.15]
+#define CRT_DESATURATION 0.15 // [0.0 0.15 0.35 0.5 0.65 0.8]
+#define CRT_CONTRAST 1.1 // [1.0 1.05 1.1 1.15 1.2 1.3]
 #define CRT_STRENGTH 0.15 // [0.0 0.05 0.15 0.25 0.4]
-#define SCANLINE_SPEED 0.25 // [0.0 0.1 0.25 0.5 0.8]
-#define CONVERGENCE_STRENGTH 0.6 // [0.0 0.3 0.6 1.0 1.5]
-#define SCRATCH_STRENGTH 0.45 // [0.0 0.25 0.45 0.6 0.8]
-#define DUST_STRENGTH 0.45 // [0.0 0.25 0.45 0.6 0.8]
+#define SCANLINE_SPEED 0.1 // [0.0 0.1 0.25 0.5 0.8]
+#define CONVERGENCE_STRENGTH 0.3 // [0.0 0.3 0.6 1.0 1.5]
+#define SCRATCH_STRENGTH 0.0 // [0.0 0.25 0.45 0.6 0.8]
+#define DUST_STRENGTH 0.0 // [0.0 0.25 0.45 0.6 0.8]
 #define BORDER_FOG_STRENGTH 0.0 // [0.0 0.5 1.0 1.5 2.0 3.0 5.0]
 
 #define VHS_ENABLED
-#define VHS_JITTER 0.6 // [0.0 0.3 0.6 1.0 1.5]
-#define VHS_NOISE 0.12 // [0.0 0.06 0.12 0.2 0.3]
-#define VHS_TRACKING_RATE 0.15 // [0.0 0.08 0.15 0.3 0.5]
+#define VHS_JITTER 0.3 // [0.0 0.3 0.6 1.0 1.5]
+#define VHS_NOISE 0.06 // [0.0 0.06 0.12 0.2 0.3]
+#define VHS_TRACKING_RATE 0.08 // [0.0 0.08 0.15 0.3 0.5]
 #define POTATO_MODE
 
 uniform sampler2D colortex0;

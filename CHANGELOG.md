@@ -1,5 +1,10 @@
 ## Changelog
 
+**v5.4.1**
+- Fixed `HALATION_ENABLED` not appearing in Shader Pack Settings. The boolean macro is now defined identically in both the low-resolution prefilter and final application pass, as required by Iris/OptiFine option scanning.
+- Tuned defaults toward a natural old CRT: subtle scanline roll, small edge convergence, restrained horizontal VHS instability, soft halation, and short highlight-only phosphor persistence.
+- Set film scratch and dust defaults to off so the base look is an aged TV tube rather than damaged film stock.
+
 **v5.4**
 - Replaced the previous bloom stage with low-resolution **Halation**, using a warm highlight bleed with adjustable strength, radius, threshold, and warmth.
 - Added **VHS Signal Mode** with horizontal jitter and head-switching noise by default; tape dropout and vertical-hold slip are enabled when `POTATO_MODE` is turned off.

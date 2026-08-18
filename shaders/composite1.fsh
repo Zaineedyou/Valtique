@@ -1,6 +1,6 @@
 #version 330 compatibility
 
-//#define HALATION_ENABLED
+#define HALATION_ENABLED // Enables low-resolution warm halation.
 #define HALATION_THRESHOLD 0.7 // [0.4 0.55 0.7 0.85 1.0]
 
 uniform sampler2D colortex0;

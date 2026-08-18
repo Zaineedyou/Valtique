@@ -2,7 +2,7 @@
 
 ![Valtique Logo](icon.png)
 
-**Version:** v5.4
+**Version:** v5.4.1
 
 Valtique is a mobile-first CRT/VHS post-processing shaderpack for Iris. It
 combines letterbox framing, tube-screen curvature, analog signal instability,
@@ -14,6 +14,7 @@ shadow pass.
 - VHS signal mode with horizontal jitter, tracking band, tape dropout, and hold-slip
 - CRT color convergence, interlaced scanline roll, and barrel curvature
 - Quarter-resolution phosphor persistence for moving highlights
+- Natural old-CRT defaults with subtle scanlines, phosphor glow, edge convergence, and restrained VHS instability
 - Potato Mode enabled by default for mobile launchers and low-end devices
 - Optional film damage, outline, and fog controls
 
