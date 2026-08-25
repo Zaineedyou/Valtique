@@ -1,0 +1,239 @@
+name: Publish Valtique release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label to publish, for example v5.5.0"
+        required: true
+        type: string
+      minecraft_versions:
+        description: "Comma-separated Minecraft versions for Modrinth"
+        required: true
+        default: "1.21.11"
+        type: string
+      curseforge_game_versions:
+        description: "Comma-separated CurseForge game-version names"
+        required: true
+        default: "Iris,1.21.11"
+        type: string
+      release_type:
+        description: "Release channel on both platforms"
+        required: true
+        default: "release"
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-valtique-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODRINTH_PROJECT_ID: 3FUsMjv8
+  CURSEFORGE_PROJECT_ID: "1640421"
+  MODRINTH_USER_AGENT: Zaineedyou/Valtique-release-workflow
+
+jobs:
+  package:
+    name: Package release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.context.outputs.version }}
+      minecraft_versions: ${{ steps.context.outputs.minecraft_versions }}
+      curseforge_game_versions: ${{ steps.context.outputs.curseforge_game_versions }}
+      release_type: ${{ steps.context.outputs.release_type }}
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive release metadata
+        id: context
+        env:
+          INPUT_VERSION: ${{ inputs.version || github.ref_name }}
+          INPUT_MINECRAFT_VERSIONS: ${{ inputs.minecraft_versions || '1.21.11' }}
+          INPUT_CURSEFORGE_GAME_VERSIONS: ${{ inputs.curseforge_game_versions || 'Iris,1.21.11' }}
+          INPUT_RELEASE_TYPE: ${{ inputs.release_type || 'release' }}
+        run: |
+          set -euo pipefail
+
+          VERSION="$INPUT_VERSION"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must use a v-prefixed semantic version, for example v5.5.0." >&2
+            exit 1
+          fi
+
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 "${GITHUB_SHA}^" 2>/dev/null || true)"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            {
+              echo "# ${VERSION}"
+              echo
+              echo "Changes since ${PREVIOUS_TAG}:"
+              git log --format='- %s' "${PREVIOUS_TAG}..${GITHUB_SHA}"
+            } > RELEASE_CHANGELOG.md
+          else
+            {
+              echo "# ${VERSION}"
+              echo
+              echo "- Initial automated release."
+            } > RELEASE_CHANGELOG.md
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "minecraft_versions=$INPUT_MINECRAFT_VERSIONS" >> "$GITHUB_OUTPUT"
+          echo "curseforge_game_versions=$INPUT_CURSEFORGE_GAME_VERSIONS" >> "$GITHUB_OUTPUT"
+          echo "release_type=$INPUT_RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: Build shaderpack ZIP
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output "Valtique-${{ steps.context.outputs.version }}.zip" "$GITHUB_SHA"
+          unzip -t "Valtique-${{ steps.context.outputs.version }}.zip"
+          sha256sum "Valtique-${{ steps.context.outputs.version }}.zip"
+
+      - name: Upload release package for publishing jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: valtique-release-${{ github.run_id }}
+          path: |
+            Valtique-*.zip
+            RELEASE_CHANGELOG.md
+          if-no-files-found: error
+          retention-days: 7
+
+  modrinth:
+    name: Publish to Modrinth
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: valtique-release-${{ github.run_id }}
+
+      - name: Create Modrinth version
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          VERSION: ${{ needs.package.outputs.version }}
+          MINECRAFT_VERSIONS: ${{ needs.package.outputs.minecraft_versions }}
+          RELEASE_TYPE: ${{ needs.package.outputs.release_type }}
+        run: |
+          set -euo pipefail
+          : "${MODRINTH_TOKEN:?Missing MODRINTH_TOKEN repository secret.}"
+
+          RELEASE_FILE="Valtique-${VERSION}.zip"
+          test -f "$RELEASE_FILE"
+          CHANGELOG="$(cat RELEASE_CHANGELOG.md)"
+          GAME_VERSIONS_JSON="$(printf '%s' "$MINECRAFT_VERSIONS" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
+
+          EXISTING_VERSION="$(curl --fail-with-body --silent --show-error \
+            --header "User-Agent: ${MODRINTH_USER_AGENT}" \
+            "https://api.modrinth.com/v2/project/${MODRINTH_PROJECT_ID}/version?include_changelog=false" \
+            | jq -r --arg version "$VERSION" '.[] | select(.version_number == $version) | .id' \
+            | head -n 1)"
+          if [[ -n "$EXISTING_VERSION" ]]; then
+            echo "Modrinth version ${VERSION} already exists as ${EXISTING_VERSION}; refusing duplicate publication." >&2
+            exit 1
+          fi
+
+          MODRINTH_DATA="$(jq -n \
+            --arg name "Valtique ${VERSION}" \
+            --arg version "$VERSION" \
+            --arg changelog "$CHANGELOG" \
+            --arg project "$MODRINTH_PROJECT_ID" \
+            --arg release_type "$RELEASE_TYPE" \
+            --argjson game_versions "$GAME_VERSIONS_JSON" \
+            '{
+              name: $name,
+              version_number: $version,
+              changelog: $changelog,
+              dependencies: [],
+              game_versions: $game_versions,
+              version_type: $release_type,
+              loaders: ["iris"],
+              featured: true,
+              status: "listed",
+              project_id: $project,
+              file_parts: ["release_file"],
+              primary_file: "release_file",
+              environment: "client_only"
+            }')"
+
+          curl --fail-with-body --silent --show-error \
+            --request POST "https://api.modrinth.com/v2/version" \
+            --header "Authorization: ${MODRINTH_TOKEN}" \
+            --header "User-Agent: ${MODRINTH_USER_AGENT}" \
+            --form "data=${MODRINTH_DATA};type=application/json" \
+            --form "release_file=@${RELEASE_FILE};type=application/zip" \
+            | tee modrinth-response.json
+          jq -e '.id and .version_number' modrinth-response.json >/dev/null
+
+  curseforge:
+    name: Publish to CurseForge
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: valtique-release-${{ github.run_id }}
+
+      - name: Upload CurseForge file
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          VERSION: ${{ needs.package.outputs.version }}
+          CURSEFORGE_GAME_VERSIONS: ${{ needs.package.outputs.curseforge_game_versions }}
+          RELEASE_TYPE: ${{ needs.package.outputs.release_type }}
+        run: |
+          set -euo pipefail
+          : "${CURSEFORGE_TOKEN:?Missing CURSEFORGE_TOKEN repository secret.}"
+
+          RELEASE_FILE="Valtique-${VERSION}.zip"
+          test -f "$RELEASE_FILE"
+          CHANGELOG="$(cat RELEASE_CHANGELOG.md)"
+          GAME_VERSION_NAMES_JSON="$(printf '%s' "$CURSEFORGE_GAME_VERSIONS" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
+
+          CURSEFORGE_VERSION_CATALOG="$(curl --fail-with-body --silent --show-error \
+            --header "X-Api-Token: ${CURSEFORGE_TOKEN}" \
+            "https://minecraft.curseforge.com/api/game/versions")"
+          CURSEFORGE_GAME_IDS="$(printf '%s' "$CURSEFORGE_VERSION_CATALOG" \
+            | jq -c --argjson names "$GAME_VERSION_NAMES_JSON" '[.[] | select(.name as $name | $names | index($name)) | .id]')"
+          MATCHED_COUNT="$(printf '%s' "$CURSEFORGE_GAME_IDS" | jq 'length')"
+          REQUESTED_COUNT="$(printf '%s' "$GAME_VERSION_NAMES_JSON" | jq 'length')"
+          if [[ "$MATCHED_COUNT" -ne "$REQUESTED_COUNT" ]]; then
+            echo "One or more CurseForge game-version names were not recognized: ${CURSEFORGE_GAME_VERSIONS}" >&2
+            exit 1
+          fi
+
+          CURSEFORGE_METADATA="$(jq -n \
+            --arg changelog "$CHANGELOG" \
+            --arg display_name "Valtique ${VERSION}" \
+            --arg release_type "$RELEASE_TYPE" \
+            --argjson game_versions "$CURSEFORGE_GAME_IDS" \
+            --argjson game_version_names "$GAME_VERSION_NAMES_JSON" \
+            '{
+              changelog: $changelog,
+              changelogType: "markdown",
+              displayName: $display_name,
+              gameVersions: $game_versions,
+              gameVersionNames: $game_version_names,
+              releaseType: $release_type
+            }')"
+
+          curl --fail-with-body --silent --show-error \
+            --request POST "https://minecraft.curseforge.com/api/projects/${CURSEFORGE_PROJECT_ID}/upload-file" \
+            --header "X-Api-Token: ${CURSEFORGE_TOKEN}" \
+            --form "metadata=${CURSEFORGE_METADATA};type=application/json" \
+            --form "file=@${RELEASE_FILE};type=application/zip" \
+            | tee curseforge-response.json
+          jq -e '.id' curseforge-response.json >/dev/null
