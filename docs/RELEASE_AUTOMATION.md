@@ -1,6 +1,6 @@
 # Publikasi Otomatis Valtique
 
-Workflow [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) membuat ZIP shaderpack langsung dari commit yang dipilih, memvalidasi integritas ZIP, lalu menerbitkan versi yang sama ke **Modrinth** dan **CurseForge**. Publikasi berjalan ketika tag Git yang sesuai pola `v*` didorong ke GitHub atau ketika workflow dipicu secara manual dari tab **Actions**.
+Workflow [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) membuat ZIP shaderpack langsung dari commit yang dipilih, memvalidasi integritas ZIP, membuat **GitHub Release** dengan ZIP tersebut sebagai lampiran, lalu menerbitkan artefak yang sama ke **Modrinth** dan **CurseForge**. Publikasi berjalan ketika tag Git yang sesuai pola `v*` didorong ke GitHub atau ketika workflow dipicu secara manual dari tab **Actions**.
 
 > Workflow tidak menggunakan username atau password. Token disimpan sebagai **GitHub Actions Secrets**, sehingga nilainya tidak disimpan dalam repositori maupun ditampilkan pada log normal workflow.
 
@@ -24,7 +24,7 @@ Workflow juga dapat dijalankan secara manual dari tab **Actions** dengan tiga in
 
 ## Perilaku Publikasi
 
-Untuk Modrinth, workflow membuat versi baru dengan loader `iris`, lingkungan `client_only`, dan metadata versi Minecraft yang Anda pilih. Workflow lebih dulu memeriksa apakah nomor versi yang sama sudah ada agar tidak membuat duplikasi. Untuk CurseForge, workflow mengambil katalog versi game saat berjalan, memetakan nama yang dimasukkan ke ID yang dibutuhkan API, kemudian mengunggah ZIP dan changelog Markdown.
+Untuk GitHub, workflow membuat release bernama sesuai tag/versi, menargetkan commit rilis, lalu mengunggah ZIP shaderpack serta changelog sebagai catatan rilis. Workflow lebih dulu menolak nomor versi yang sudah ada agar tidak melampirkan artefak ke release yang salah. Untuk Modrinth, workflow membuat versi baru dengan loader `iris`, lingkungan `client_only`, dan metadata versi Minecraft yang Anda pilih. Untuk CurseForge, workflow mengambil katalog versi game saat berjalan, memetakan nama yang dimasukkan ke ID yang dibutuhkan API, kemudian mengunggah ZIP dan changelog Markdown.
 
 Jika salah satu platform menolak rilis, job platform lainnya tetap memberikan hasilnya sendiri. Jangan memicu ulang seluruh workflow tanpa membaca log: jika Modrinth sudah sukses tetapi CurseForge gagal, jalankan ulang hanya job CurseForge setelah penyebabnya diperbaiki agar Modrinth tidak mencoba membuat versi duplikat.
 
