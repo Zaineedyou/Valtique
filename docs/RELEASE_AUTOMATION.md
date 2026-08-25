@@ -24,7 +24,7 @@ Workflow juga dapat dijalankan secara manual dari tab **Actions** dengan tiga in
 
 ## Perilaku Publikasi
 
-Untuk Modrinth, workflow membuat versi baru dengan loader `iris`, lingkungan `client_only`, dan metadata versi Minecraft yang Anda pilih. Untuk CurseForge, workflow mengambil katalog versi game saat berjalan, memetakan nama yang dimasukkan ke ID yang dibutuhkan API, kemudian mengunggah ZIP dan changelog Markdown. Artifact ZIP sementara disimpan hanya untuk membagikan berkas yang sama kepada dua job unggahan.
+Untuk Modrinth, workflow membuat versi baru dengan loader `iris`, lingkungan `client_only`, dan metadata versi Minecraft yang Anda pilih. Untuk CurseForge, workflow mengambil katalog versi game saat berjalan, menerima format respons katalog yang berlaku, memetakan nama yang dimasukkan ke ID yang dibutuhkan API, kemudian mengunggah ZIP dan changelog Markdown. Artifact ZIP sementara disimpan hanya untuk membagikan berkas yang sama kepada dua job unggahan.
 
 Jika salah satu platform menolak rilis, job platform lainnya tetap memberikan hasilnya sendiri. Jangan memicu ulang seluruh workflow tanpa membaca log: jika Modrinth sudah sukses tetapi CurseForge gagal, jalankan ulang hanya job CurseForge setelah penyebabnya diperbaiki agar Modrinth tidak mencoba membuat versi duplikat.
 

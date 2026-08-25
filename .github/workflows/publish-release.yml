@@ -207,7 +207,13 @@ jobs:
             --header "X-Api-Token: ${CURSEFORGE_TOKEN}" \
             "https://minecraft.curseforge.com/api/game/versions")"
           CURSEFORGE_GAME_IDS="$(printf '%s' "$CURSEFORGE_VERSION_CATALOG" \
-            | jq -c --argjson names "$GAME_VERSION_NAMES_JSON" '[.[] | select(.name as $name | $names | index($name)) | .id]')"
+            | jq -c --argjson names "$GAME_VERSION_NAMES_JSON" '
+                if type == "array" then .
+                elif (.data | type) == "array" then .data
+                else error("Unexpected CurseForge game-version catalog response")
+                end
+                | [.[] | select(.name as $name | $names | index($name)) | .id]
+              ')"
           MATCHED_COUNT="$(printf '%s' "$CURSEFORGE_GAME_IDS" | jq 'length')"
           REQUESTED_COUNT="$(printf '%s' "$GAME_VERSION_NAMES_JSON" | jq 'length')"
           if [[ "$MATCHED_COUNT" -ne "$REQUESTED_COUNT" ]]; then
